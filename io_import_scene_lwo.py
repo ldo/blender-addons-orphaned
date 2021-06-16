@@ -19,14 +19,13 @@
 bl_info= {
     "name": "Import LightWave Objects",
     "author": "Ken Nign (Ken9)",
-    "version": (1, 2),
-    "blender": (2, 57, 0),
+    "version": (1, 3),
+    "blender": (2, 93, 0),
     "location": "File > Import > LightWave Object (.lwo)",
     "description": "Imports a LWO file including any UV, Morph and Color maps. "
                    "Can convert Skelegons to an Armature.",
     "warning": "",
-    "wiki_url": "http://wiki.blender.org/index.php/Extensions:2.6/Py/"
-                "Scripts/Import-Export/LightWave_Object",
+    "wiki_url": "",
     "category": "Import-Export",
 }
 
@@ -418,6 +417,7 @@ def read_pnts(pnt_bytes, object_layers):
         pnts= [pnts[0] - object_layers[-1].pivot[0],\
                pnts[2] - object_layers[-1].pivot[1],\
                pnts[1] - object_layers[-1].pivot[2]]
+        print("PNTS[%d] = (%s, %s, %s)" % (offset, pnts[0], pnts[1], pnts[2])) # debug
         object_layers[-1].pnts.append(pnts)
 
 
@@ -647,10 +647,12 @@ def read_pols(pol_bytes, object_layers):
 
     while offset < pols_count:
         pnts_count,= struct.unpack(">H", pol_bytes[offset:offset+2])
+        print("POLS run at %#08x = %d" % (offset, pnts_count)) # debug
         offset+= 2
         all_face_pnts= []
         for j in range(pnts_count):
             face_pnt, data_size= read_vx(pol_bytes[offset:offset+4])
+            print(" point[%d] = %d" % (j, face_pnt)) # debug
             offset+= data_size
             all_face_pnts.append(face_pnt)
 
@@ -984,28 +986,50 @@ def build_objects(object_layers, object_surfs, object_tags, object_name, add_sub
     ob_dict= {}  # Used for the parenting setup.
     print("Adding %d Materials" % len(object_surfs))
 
+    clip = lambda x : min(1, max(x, 0))
     for surf_key in object_surfs:
-        surf_data= object_surfs[surf_key]
+        surf_data = object_surfs[surf_key]
         surf_data.bl_mat = bpy.data.materials.get(surf_data.name) if use_existing_materials else None
-        if surf_data.bl_mat is None:
-            surf_data.bl_mat= bpy.data.materials.new(surf_data.name)
-            surf_data.bl_mat.diffuse_color= (surf_data.colr[:])
-            surf_data.bl_mat.diffuse_intensity= surf_data.diff
-            surf_data.bl_mat.emit= surf_data.lumi
-            surf_data.bl_mat.specular_intensity= surf_data.spec
-            if surf_data.refl != 0.0:
-                surf_data.bl_mat.raytrace_mirror.use= True
-            surf_data.bl_mat.raytrace_mirror.reflect_factor= surf_data.refl
-            surf_data.bl_mat.raytrace_mirror.gloss_factor= 1.0-surf_data.rblr
-            if surf_data.tran != 0.0:
-                surf_data.bl_mat.use_transparency= True
-                surf_data.bl_mat.transparency_method= 'RAYTRACE'
-            surf_data.bl_mat.alpha= 1.0 - surf_data.tran
-            surf_data.bl_mat.raytrace_transparency.ior= surf_data.rind
-            surf_data.bl_mat.raytrace_transparency.gloss_factor= 1.0 - surf_data.tblr
-            surf_data.bl_mat.translucency= surf_data.trnl
-            surf_data.bl_mat.specular_hardness= int(4*((10*surf_data.glos)*(10*surf_data.glos)))+4
-        # The Gloss is as close as possible given the differences.
+        if surf_data.bl_mat is None :
+            bl_mat = bpy.data.materials.new(surf_data.name)
+            surf_data.bl_mat = bl_mat
+            bl_mat.use_nodes = True
+            # use default principled shader, and do some rough-and-ready guesses
+            # at equivalent settings
+            bl_shader = list(n for n in bl_mat.node_tree.nodes if n.type == "BSDF_PRINCIPLED")
+            assert len(bl_shader) == 1
+            bl_shader = bl_shader[0]
+            alpha = 1 - surf_data.tran
+            if alpha < 1 :
+                bl_mat.blend_method = "BLEND"
+            #end if
+            # surf_data.shrp, surf_data.smooth ignored
+            total_shiny = clip(surf_data.spec + surf_data.glos + surf_data.refl)
+              # LightWave presumably distinguishes between ray-traced versus non-ray-traced
+              # shiny, but we just mash them all together.
+            bl_shader.inputs["Base Color"].default_value = bl_mat.diffuse_color = \
+                (
+                    tuple(c * surf_data.diff * (1 - total_shiny) for c in surf_data.colr)
+                      # highly-specular materials need a darker base colour,
+                      # at least in Cycles
+                +
+                    (alpha,)
+                    # this alpha is used by Workbench, not Eevee or Cycles
+                )
+            if surf_data.lumi > 0 :
+                bl_shader.inputs["Emission"].default_value = (1, 1, 1, 1)
+                bl_shader.inputs["Emission Strength"].default_value = surf_data.lumi
+            #end if
+            # bl_shader.inputs["Alpha"].default_value left at 1,
+            # “Transmission” (below) set instead
+            bl_shader.inputs["Specular"].default_value = bl_mat.specular_intensity = total_shiny
+            # Any equivalent to bl_shader.inputs["Metallic"]?
+            bl_shader.inputs["Roughness"].default_value = bl_mat.roughness = surf_data.rblr
+            bl_shader.inputs["IOR"].default_value = surf_data.rind
+            bl_shader.inputs["Transmission Roughness"].default_value = surf_data.tblr
+            bl_shader.inputs["Transmission"].default_value = clip(surf_data.trnl + surf_data.tran)
+              # not sure about meaning of translucency ...
+        #end if
 
     # Single layer objects use the object file's name instead.
     if len(object_layers) and object_layers[-1].name == 'Layer 1':
@@ -1020,31 +1044,15 @@ def build_objects(object_layers, object_surfs, object_tags, object_name, add_sub
 
     for layer_data in object_layers:
         me= bpy.data.meshes.new(layer_data.name)
-        me.vertices.add(len(layer_data.pnts))
-        me.tessfaces.add(len(layer_data.pols))
-        # for vi in range(len(layer_data.pnts)):
-        #     me.vertices[vi].co= layer_data.pnts[vi]
-
-        # faster, would be faster again to use an array
-        me.vertices.foreach_set("co", [axis for co in layer_data.pnts for axis in co])
-
-        ngons= {}   # To keep the FaceIdx consistent, handle NGons later.
-        edges= []   # Holds the FaceIdx of the 2-point polys.
         for fi, fpol in enumerate(layer_data.pols):
             fpol.reverse()   # Reversing gives correct normal directions
             # PointID 0 in the last element causes Blender to think it's un-used.
             if fpol[-1] == 0:
                 fpol.insert(0, fpol[-1])
                 del fpol[-1]
-
-            vlen= len(fpol)
-            if vlen == 3 or vlen == 4:
-                for i in range(vlen):
-                    me.tessfaces[fi].vertices_raw[i]= fpol[i]
-            elif vlen == 2:
-                edges.append(fi)
-            elif vlen != 1:
-                ngons[fi]= fpol  # Deal with them later
+            #end if
+        #end for
+        me.from_pydata(layer_data.pnts, [], layer_data.pols)
 
         ob= bpy.data.objects.new(layer_data.name, me)
         bpy.context.collection.objects.link(ob)
@@ -1054,26 +1062,30 @@ def build_objects(object_layers, object_surfs, object_tags, object_name, add_sub
         ob.location= layer_data.pivot
 
         # Create the Material Slots and assign the MatIndex to the correct faces.
-        mat_slot= 0
+        mat_slot = 0
         for surf_key in layer_data.surf_tags:
-            if object_tags[surf_key] in object_surfs:
+            if object_tags[surf_key] in object_surfs :
                 me.materials.append(object_surfs[object_tags[surf_key]].bl_mat)
-
-                for fi in layer_data.surf_tags[surf_key]:
-                    me.tessfaces[fi].material_index= mat_slot
-                    me.tessfaces[fi].use_smooth= object_surfs[object_tags[surf_key]].smooth
-
+                for fi in layer_data.surf_tags[surf_key] :
+                    me.polygons[fi].material_index = mat_slot
+                    me.polygons[fi].use_smooth = object_surfs[object_tags[surf_key]].smooth
+                #end for
                 mat_slot+=1
+            #end if
+        #end for
 
         # Create the Vertex Groups (LW's Weight Maps).
-        if len(layer_data.wmaps) > 0:
+        if len(layer_data.wmaps) > 0 :
             print("Adding %d Vertex Groups" % len(layer_data.wmaps))
-            for wmap_key in layer_data.wmaps:
-                vgroup= ob.vertex_groups.new()
-                vgroup.name= wmap_key
-                wlist= layer_data.wmaps[wmap_key]
+            for wmap_key in layer_data.wmaps :
+                vgroup = ob.vertex_groups.new()
+                vgroup.name = wmap_key
+                wlist = layer_data.wmaps[wmap_key]
                 for pvp in wlist:
                     vgroup.add((pvp[0], ), pvp[1], 'REPLACE')
+                #end for
+            #end for
+        #end if
 
         # Create the Shape Keys (LW's Endomorphs).
         if len(layer_data.morphs) > 0:
@@ -1128,37 +1140,6 @@ def build_objects(object_layers, object_surfs, object_tags, object_name, add_sub
                         uvf.uv3= face[2]
                     if len(face) == 4:
                         uvf.uv4= face[3]
-
-        # Now add the NGons.
-        if len(ngons) > 0:
-            for ng_key in ngons:
-                face_offset= len(me.tessfaces)
-                ng= ngons[ng_key]
-                v_locs= []
-                for vi in range(len(ng)):
-                    v_locs.append(mathutils.Vector(layer_data.pnts[ngons[ng_key][vi]]))
-                tris= tessellate_polygon([v_locs])
-                me.tessfaces.add(len(tris))
-                for tri in tris:
-                    face= me.tessfaces[face_offset]
-                    face.vertices_raw[0]= ng[tri[0]]
-                    face.vertices_raw[1]= ng[tri[1]]
-                    face.vertices_raw[2]= ng[tri[2]]
-                    face.material_index= me.tessfaces[ng_key].material_index
-                    face.use_smooth= me.tessfaces[ng_key].use_smooth
-                    face_offset+= 1
-
-        # FaceIDs are no longer a concern, so now update the mesh.
-        has_edges= len(edges) > 0 or len(layer_data.edge_weights) > 0
-        me.update(calc_edges=has_edges)
-
-        # Add the edges.
-        edge_offset= len(me.edges)
-        me.edges.add(len(edges))
-        for edge_fi in edges:
-            me.edges[edge_offset].vertices[0]= layer_data.pols[edge_fi][0]
-            me.edges[edge_offset].vertices[1]= layer_data.pols[edge_fi][1]
-            edge_offset+= 1
 
         # Apply the Edge Weighting.
         if len(layer_data.edge_weights) > 0:
@@ -1249,13 +1230,13 @@ def menu_func(self, context):
 
 
 def register():
-    bpy.utils.register_module(__name__)
+    bpy.utils.register_class(IMPORT_OT_lwo)
 
     bpy.types.TOPBAR_MT_file_import.append(menu_func)
 
 
 def unregister():
-    bpy.utils.unregister_module(__name__)
+    bpy.utils.unregister_class(IMPORT_OT_lwo)
 
     bpy.types.TOPBAR_MT_file_import.remove(menu_func)
 
