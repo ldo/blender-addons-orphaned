@@ -1017,7 +1017,7 @@ def build_objects(object_layers, object_surfs, object_tags, object_name, add_sub
                     # this alpha is used by Workbench, not Eevee or Cycles
                 )
             if surf_data.lumi > 0 :
-                bl_shader.inputs["Emission"].default_value = (1, 1, 1, 1)
+                bl_shader.inputs["Emission"].default_value = bl_mat.diffuse_color
                 bl_shader.inputs["Emission Strength"].default_value = surf_data.lumi
             #end if
             # bl_shader.inputs["Alpha"].default_value left at 1,
