@@ -1049,6 +1049,7 @@ def load_3ds(filepath,
              IMAGE_SEARCH=True,
              KEYFRAME=True,
              APPLY_MATRIX=True,
+             CLEAR_MATRIX=True,
              global_matrix=None):
     #    global SCN
 
@@ -1115,6 +1116,13 @@ def load_3ds(filepath,
 
     for ob in imported_objects:
         ob.select_set(True)
+
+    if CLEAR_MATRIX:
+        # operate on all selected (i.e. imported) objects
+        bpy.ops.object.location_clear()
+        bpy.ops.object.rotation_clear()
+        bpy.ops.object.scale_clear()
+    #end if
 
     # Done DUMMYVERT
     """
@@ -1184,6 +1192,7 @@ def load(operator,
          use_image_search=True,
          read_keyframe=True,
          use_apply_transform=True,
+         use_clear_transform=True,
          global_matrix=None,
          ):
 
@@ -1193,6 +1202,7 @@ def load(operator,
              IMAGE_SEARCH=use_image_search,
              KEYFRAME=read_keyframe,
              APPLY_MATRIX=use_apply_transform,
+             CLEAR_MATRIX=use_clear_transform,
              global_matrix=global_matrix,
              )
 

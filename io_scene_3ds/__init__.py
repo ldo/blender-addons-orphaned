@@ -34,7 +34,7 @@ import bpy
 bl_info = {
     "name": "Autodesk 3DS format",
     "author": "Bob Holcomb, Campbell Barton, Andreas Atteneder, Sebastian Schrand",
-    "version": (2, 1, 0),
+    "version": (2, 1, 1),
     "blender": (2, 82, 0),
     "location": "File > Import",
     "description": "Import 3DS, meshes, uvs, materials, textures, "
@@ -89,6 +89,13 @@ class Import3DS(bpy.types.Operator, ImportHelper):
         description="Read the keyframe data",
         default=True,
     )
+
+    use_clear_transform : BoolProperty(
+            name="Clear Transform",
+            description="Workaround for object transformations "
+                        "importing incorrectly",
+            default=True,
+            )
 
     def execute(self, context):
         from . import import_3ds
