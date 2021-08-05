@@ -1,5 +1,5 @@
 import bpy
-from bpy.types import Mesh, PointLamp, SpotLamp, HemiLamp, AreaLamp, SunLamp, Camera, TextCurve, MetaBall, Lattice, Armature
+from bpy.types import Mesh, PointLight, SpotLight, AreaLight, SunLight, Camera, TextCurve, MetaBall, Lattice, Armature
 
 
 def new(name,datatype,naming_method):
@@ -88,7 +88,7 @@ def removeData(data) :
             if data_type == Mesh :
                 bpy.data.meshes.remove(data)
             # lamp
-            elif data_type in [ PointLamp, SpotLamp, HemiLamp, AreaLamp, SunLamp ] :
+            elif data_type in [ PointLight, SpotLight, AreaLight, SunLight ] :
                 bpy.data.lamps.remove(data)
             # camera
             elif data_type == Camera :

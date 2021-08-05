@@ -1,3 +1,10 @@
+from . import \
+    fs, \
+    image, \
+    material, \
+    mesh, \
+    ob, \
+    uv
 
 # set a given name to a unique
 # blender data name in its collection

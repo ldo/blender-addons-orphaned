@@ -30,31 +30,11 @@ import bpy
 import mathutils as bmat
 from mathutils import Vector, Matrix
 
-try :
-	import bel
-	import bel.mesh
-	import bel.image
-	import bel.uv
-	import bel.material
-	import bel.ob
-	import bel.fs
-except :
-	import io_directx_bel.bel as bel
-	from .bel import mesh,image,uv,material,ob,fs
+from . import bel
 
-from .templates_x import *
-
-'''
-# just a temp hack to reload bel everytime
-import imp
-imp.reload(bel)
-imp.reload(bel.fs)
-imp.reload(bel.image)
-imp.reload(bel.material)
-imp.reload(bel.mesh)
-imp.reload(bel.ob)
-imp.reload(bel.uv)
-'''
+from .templates_x import \
+    defaultTemplates, \
+    templatesConvert
 
 ###################################################
 
@@ -240,7 +220,7 @@ BINARY FORMAT
                     lvl -= 1
                     previouslvl = False
 
-                #print('%s lines in %.2f\''%(c,time.clock()-t),end='\r')
+                #print('%s lines in %.2f\''%(c,time.process_time()-t),end='\r')
                 #print(c,len(l)+1,ptr,data.tell())
                 if '{' in l :
                     lvl += 1
@@ -803,7 +783,8 @@ BINARY FORMAT
                     mat = bel.material.new(matname,naming_method)
                     matslots[slotid] = mat.name
 
-                    if naming_method != 1 :
+                    if False : # TBD fix material setup
+                    #if naming_method != 1 :
                         #print('matname : %s'%matname)
                         (diffuse_color,alpha), power, specCol, emitCol = readToken(matname)
                         #if debug : print(diffuse_color,alpha, power, specCol, emitCol)
@@ -820,7 +801,9 @@ BINARY FORMAT
                             mat.alpha = alpha
                             mat.specular_alpha = 0
                             transp = True
-                        else : transp = False
+                        else :
+                            transp = False
+                        #end if
 
                         # texture
                         # only 'TextureFilename' can be here, no type test
@@ -829,7 +812,6 @@ BINARY FORMAT
                         # bdata texture slot name = bdata image name
                         btexnames = []
                         for texname in getChilds(matname) :
-
                             # create/rename/reuse etc corresponding data image
                             # (returns False if not found)
                             [filename] = readToken(texname)
@@ -839,6 +821,7 @@ BINARY FORMAT
                                 imgname = 'not_found'
                             else :
                                 imgname = img.name
+                            #end if
 
                             #print('texname : %s'%texname)
                             #print('filename : %s'%filename)
@@ -850,7 +833,10 @@ BINARY FORMAT
                                 tex = bpy.data.textures[imgname]
                             else :
                                 tex = bpy.data.textures.new(name=imgname,type='IMAGE')
-                                if img : tex.image = img
+                                if img :
+                                    tex.image = img
+                                #end if
+                            #end if
 
                             tex.use_alpha = transp
                             tex.use_preview_alpha = transp
@@ -862,6 +848,8 @@ BINARY FORMAT
                             texslot.uv_layer = 'UV0'
                             texslot.use_map_alpha = transp
                             texslot.alpha_factor = alpha
+                        #end for
+                    #end if
 
                 # create remaining dummy mat
                 for slotid, matname in enumerate(matslots) :
@@ -898,7 +886,7 @@ BINARY FORMAT
     file = os.path.basename(filepath)
 
     print('\nimporting %s...'%file)
-    start = time.clock()
+    start = time.process_time()
     path = os.path.dirname(filepath)
     filepath = os.fsencode(filepath)
     data = open(filepath,'rb')
@@ -921,9 +909,9 @@ BINARY FORMAT
 
             ## FILE READ : STEP 1 : STRUCTURE
             if show_geninfo : print('\nBuilding internal .x tree')
-            t = time.clock()
+            t = time.process_time()
             tokens, templates, tokentypes = dXtree(data,quickmode)
-            readstruct_time = time.clock()-t
+            readstruct_time = time.process_time()-t
             if show_geninfo : print('builded tree in %.2f\''%(readstruct_time)) # ,end='\r')
 
             ## populate templates with datas
@@ -960,7 +948,7 @@ BINARY FORMAT
                     ob = getMesh(obname,tokenname,show_geninfo)
                     ob.matrix_world = global_matrix
 
-            print('done in %.2f\''%(time.clock()-start)) # ,end='\r')
+            print('done in %.2f\''%(time.process_time()-start)) # ,end='\r')
 
         else :
             print('only .x files in text format are currently supported')

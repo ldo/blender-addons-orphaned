@@ -94,23 +94,29 @@ def write(obname,name,
             '''
             if matname not in bpy.data.materials :
                 mat = bpy.data.materials.new(name=matname)
-                mat.diffuse_color=( random.uniform(0.0,1.0),random.uniform(0.0,1.0),random.uniform(0.0,1.0))
+                mat.diffuse_color=( random.uniform(0.0,1.0),random.uniform(0.0,1.0),random.uniform(0.0,1.0), 1)
                 mat.use_fake_user = True
                 warn.append('Created missing material : %s'%matname)
             else :
             '''
             mat = bpy.data.materials[matname]
             me.materials.append(mat)
-            texslot_nb = len(mat.texture_slots)
-            if texslot_nb :
-                texslot = mat.texture_slots[0]
-                if type(texslot) != type(None) :
-                    tex = texslot.texture
-                    if tex.type == 'IMAGE' :
-                        img = tex.image
-                        if type(img) != type(None) :
-                            matimage.append(img)
-                            continue
+            if False: # TBD fix material setup
+                texslot_nb = len(mat.texture_slots)
+                if texslot_nb :
+                    texslot = mat.texture_slots[0]
+                    if type(texslot) != type(None) :
+                        tex = texslot.texture
+                        if tex.type == 'IMAGE' :
+                            img = tex.image
+                            if type(img) != type(None) :
+                                matimage.append(img)
+                                continue
+                            #end if
+                        #end if
+                    #end if
+                #end if
+            #end if
             matimage.append(False)
 
     # uvs
@@ -227,8 +233,8 @@ def materialsCheck(bld) :
                 if hasattr(bld,'mat_%s'%(matname)) :
                     method = 'defined by builder'
                     matdef = eval('bld.mat_%s'%(matname))
-                    mat.diffuse_color = matdef['diffuse_color']
+                    mat.diffuse_color = tulpe(matdef['diffuse_color']) + (1,)
                 else :
                     method = 'random'
-                    mat.diffuse_color=( random.uniform(0.0,1.0),random.uniform(0.0,1.0),random.uniform(0.0,1.0))
+                    mat.diffuse_color=( random.uniform(0.0,1.0),random.uniform(0.0,1.0),random.uniform(0.0,1.0), 1)
                 dprint('Created missing material %s (%s)'%(matname,method),2)
