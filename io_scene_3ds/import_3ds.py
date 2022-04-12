@@ -308,7 +308,7 @@ def add_texture_to_material(image, contextWrapper, pct, extend, alpha, scale, of
     contextWrapper._grid_to_location(1, 0, dst_node=contextWrapper.node_out, ref_node=shader)
 
 
-def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SEARCH, KEYFRAME):
+def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SEARCH, KEYFRAME, CLEAR_MATRIX):
     from bpy_extras.image_utils import load_image
 
     contextObName = None
@@ -546,7 +546,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
 
         # is it an object info chunk?
         elif new_chunk.ID == OBJECTINFO:
-            process_next_chunk(context, file, new_chunk, imported_objects, IMAGE_SEARCH, KEYFRAME)
+            process_next_chunk(context, file, new_chunk, imported_objects, IMAGE_SEARCH, KEYFRAME, CLEAR_MATRIX)
 
             # keep track of how much we read in the main chunk
             new_chunk.bytes_read += temp_chunk.bytes_read
@@ -905,7 +905,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
                 temp_data = file.read(SZ_3FLOAT)
                 loc = struct.unpack('<3f', temp_data)
                 new_chunk.bytes_read += SZ_3FLOAT
-                if nframe == 0:
+                if not CLEAR_MATRIX and nframe == 0:
                     child.location = loc
 
         elif KEYFRAME and new_chunk.ID == ROT_TRACK_TAG and child.type == 'MESH':  # rotation
@@ -924,7 +924,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
                 temp_data = file.read(SZ_4FLOAT)
                 rad, axis_x, axis_y, axis_z = struct.unpack("<4f", temp_data)
                 new_chunk.bytes_read += SZ_4FLOAT
-                if nframe == 0:
+                if not CLEAR_MATRIX and nframe == 0:
                     child.rotation_euler = mathutils.Quaternion(
                         (axis_x, axis_y, axis_z), -rad).to_euler()   # why negative?
 
@@ -944,7 +944,7 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
                 temp_data = file.read(SZ_3FLOAT)
                 sca = struct.unpack('<3f', temp_data)
                 new_chunk.bytes_read += SZ_3FLOAT
-                if nframe == 0:
+                if not CLEAR_MATRIX and nframe == 0:
                     child.scale = sca
 
         elif KEYFRAME and new_chunk.ID == COL_TRACK_TAG and child.type == 'LIGHT':  # color
@@ -1033,14 +1033,16 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
                     ob.parent = object_list[parent]
 
             # pivot_list[ind] += pivot_list[parent]  # XXX, not sure this is correct, should parent space matrix be applied before combining?
+    if not CLEAR_MATRIX :
     # fix pivots
-    for ind, ob in enumerate(object_list):
-        if ob.type == 'MESH':
-            pivot = pivot_list[ind]
-            pivot_matrix = object_matrix.get(ob, mathutils.Matrix())  # unlikely to fail
-            pivot_matrix = mathutils.Matrix.Translation(-1 * pivot)
-            #pivot_matrix = mathutils.Matrix.Translation(pivot_matrix.to_3x3() @ -pivot)
-            ob.data.transform(pivot_matrix)
+        for ind, ob in enumerate(object_list):
+            if ob.type == 'MESH':
+                pivot = pivot_list[ind]
+                pivot_matrix = object_matrix.get(ob, mathutils.Matrix())  # unlikely to fail
+                pivot_matrix = mathutils.Matrix.Translation(-1 * pivot)
+                #pivot_matrix = mathutils.Matrix.Translation(pivot_matrix.to_3x3() @ -pivot)
+                ob.data.transform(pivot_matrix)
+    #end if
 
 
 def load_3ds(filepath,
@@ -1091,7 +1093,7 @@ def load_3ds(filepath,
     scn = context.scene
 
     imported_objects = []  # Fill this list with objects
-    process_next_chunk(context, file, current_chunk, imported_objects, IMAGE_SEARCH, KEYFRAME)
+    process_next_chunk(context, file, current_chunk, imported_objects, IMAGE_SEARCH, KEYFRAME, CLEAR_MATRIX)
 
     # fixme, make unglobal
     object_dictionary.clear()
