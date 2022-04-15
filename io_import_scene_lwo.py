@@ -19,8 +19,8 @@
 bl_info= {
     "name": "Import LightWave Objects",
     "author": "Ken Nign (Ken9)",
-    "version": (1, 3),
-    "blender": (2, 93, 0),
+    "version": (1, 3, 1),
+    "blender": (3, 0, 0),
     "location": "File > Import > LightWave Object (.lwo)",
     "description": "Imports a LWO file including any UV, Morph and Color maps. "
                    "Can convert Skelegons to an Armature.",
@@ -1090,9 +1090,9 @@ def build_objects(object_layers, object_surfs, object_tags, object_name, add_sub
         # Create the Shape Keys (LW's Endomorphs).
         if len(layer_data.morphs) > 0:
             print("Adding %d Shapes Keys" % len(layer_data.morphs))
-            ob.shape_key_add('Basis')   # Got to have a Base Shape.
+            ob.shape_key_add(name = 'Basis')   # Got to have a Base Shape.
             for morph_key in layer_data.morphs:
-                skey= ob.shape_key_add(morph_key)
+                skey= ob.shape_key_add(name = morph_key)
                 dlist= layer_data.morphs[morph_key]
                 for pdp in dlist:
                     me.shape_keys.key_blocks[skey.name].data[pdp[0]].co= [pdp[1], pdp[2], pdp[3]]
@@ -1123,23 +1123,28 @@ def build_objects(object_layers, object_surfs, object_tags, object_name, add_sub
         if len(layer_data.uvmaps) > 0:
             print("Adding %d UV Textures" % len(layer_data.uvmaps))
             for uvmap_key in layer_data.uvmaps:
-                map_pack= create_mappack(layer_data, uvmap_key, "UV")
-                me.uv_textures.new(name=uvmap_key)
-                uvm= me.tessface_uv_textures[-1]
+                map_pack = create_mappack(layer_data, uvmap_key, "UV")
+                uvm = me.uv_layers.new(name = uvmap_key)
                 if not uvm or not uvm.data:
                     break
                 for fi in map_pack:
-                    if fi > len(uvm.data):
-                        continue
-                    face= map_pack[fi]
-                    uvf= uvm.data[fi]
-
-                    if len(face) > 2:
-                        uvf.uv1= face[0]
-                        uvf.uv2= face[1]
-                        uvf.uv3= face[2]
-                    if len(face) == 4:
-                        uvf.uv4= face[3]
+                    if fi <= len(me.polygons) :
+                        face_uv = map_pack[fi]
+                        if len(face_uv) > 2 :
+                            meshface = me.polygons[fi]
+                            for i, loopindex in enumerate(range
+                              (
+                                meshface.loop_start,
+                                meshface.loop_start + meshface.loop_total
+                              )) \
+                            :
+                                uvm.data[loopindex].uv = face_uv[i]
+                            #end for
+                        #end if
+                    #end if
+                #end for
+            #end for
+        #end if
 
         # Apply the Edge Weighting.
         if len(layer_data.edge_weights) > 0:
