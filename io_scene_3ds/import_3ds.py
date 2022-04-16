@@ -1021,16 +1021,18 @@ def process_next_chunk(context, file, previous_chunk, imported_objects, IMAGE_SE
     # Assign parents to objects
     # check _if_ we need to assign first because doing so recalcs the depsgraph
     for ind, ob in enumerate(object_list):
-        parent = object_parent[ind]
-        if parent == ROOT_OBJECT:
-            if ob.parent is not None:
-                ob.parent = None
-        else:
-            if ob.parent != object_list[parent]:
-                if ob == object_list[parent]:
-                    print('   warning: Cannot assign self to parent ', ob)
-                else:
-                    ob.parent = object_list[parent]
+        if ob != None :
+            parent = object_parent[ind]
+            if parent == ROOT_OBJECT:
+                if ob.parent is not None:
+                    ob.parent = None
+            else:
+                if ob.parent != object_list[parent]:
+                    if ob == object_list[parent]:
+                        print('   warning: Cannot assign self to parent ', ob)
+                    else:
+                        ob.parent = object_list[parent]
+        #end if
 
             # pivot_list[ind] += pivot_list[parent]  # XXX, not sure this is correct, should parent space matrix be applied before combining?
     if not CLEAR_MATRIX :
