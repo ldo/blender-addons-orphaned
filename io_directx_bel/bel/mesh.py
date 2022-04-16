@@ -233,7 +233,7 @@ def materialsCheck(bld) :
                 if hasattr(bld,'mat_%s'%(matname)) :
                     method = 'defined by builder'
                     matdef = eval('bld.mat_%s'%(matname))
-                    mat.diffuse_color = tulpe(matdef['diffuse_color']) + (1,)
+                    mat.diffuse_color = tuple(matdef['diffuse_color']) + (1,)
                 else :
                     method = 'random'
                     mat.diffuse_color=( random.uniform(0.0,1.0),random.uniform(0.0,1.0),random.uniform(0.0,1.0), 1)
