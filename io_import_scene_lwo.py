@@ -16,6 +16,8 @@
 #
 # ##### END GPL LICENSE BLOCK #####
 
+import sys
+
 bl_info= {
     "name": "Import LightWave Objects",
     "author": "Ken Nign (Ken9)",
@@ -1067,8 +1069,12 @@ def build_objects(object_layers, object_surfs, object_tags, object_name, add_sub
             if object_tags[surf_key] in object_surfs :
                 me.materials.append(object_surfs[object_tags[surf_key]].bl_mat)
                 for fi in layer_data.surf_tags[surf_key] :
-                    me.polygons[fi].material_index = mat_slot
-                    me.polygons[fi].use_smooth = object_surfs[object_tags[surf_key]].smooth
+                    if fi < len(me.polygons) :
+                        me.polygons[fi].material_index = mat_slot
+                        me.polygons[fi].use_smooth = object_surfs[object_tags[surf_key]].smooth
+                    else :
+                        sys.stderr.write("len(me[%s].polygons) = %d, access %d out of range\n" % (me.name, len(me.polygons), fi)) # debug
+                    #end if
                 #end for
                 mat_slot+=1
             #end if
