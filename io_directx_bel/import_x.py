@@ -586,7 +586,7 @@ BINARY FORMAT
             bonechild = buildArm(armdata,bonechild,lvl+1,bonematW)
             bonechild.parent = bone
             bone_length = min((bonechild.head - bone.head).length, bone_length)
-        bone.tail = bonematW * Vector((0,bone_length,0))
+        bone.tail = bonematW @ Vector((0,bone_length,0))
         if lvl == 0 :
             bpy.ops.object.mode_set(mode='OBJECT')
             return arm
@@ -663,7 +663,7 @@ BINARY FORMAT
 
         # nothing case ?
         else :
-            ob = [parentname, Matrix() * global_matrix,[]]
+            ob = [parentname, Matrix() @ global_matrix,[]]
             if show_geninfo : print('%snothing here'%(tab))
 
         childs = []

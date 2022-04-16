@@ -54,7 +54,7 @@ def saveOptions(op,operator_name, tokens, filename='last_run'):
     #print(dir(op))
     target_path = os_path.join("operator", operator_name)
     target_path = os_path.join("presets", target_path)
-    target_path = bpy.utils.user_resource('SCRIPTS',target_path,create=True)
+    target_path = bpy.utils.user_resource('SCRIPTS', path = target_path, create = True)
     if target_path:
         filepath = os_path.join(target_path, filename) + ".py"
         file_preset = open(filepath, 'w')
