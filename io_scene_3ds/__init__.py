@@ -87,7 +87,7 @@ class Import3DS(bpy.types.Operator, ImportHelper):
     read_keyframe: bpy.props.BoolProperty(
         name="Read Keyframe",
         description="Read the keyframe data",
-        default=True,
+        default=False,
     )
 
     use_clear_transform : BoolProperty(
