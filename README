@@ -1,5 +1,4 @@
-One or two addons that have been dropped from Blender
-<https://blender.org/>, or look like they might be dropped, but which
-might still have some use. I have done some patches to keep them
-limping along just a little longer. But don’t expect them to be
-well-maintained.
+This project is no longer being maintained on GitHub.
+Look for it at one of
+* gitlab: https://gitlab.com/ldo/blender-addons-orphaned
+* bitbucket: https://bitbucket.org/ldo17/blender-addons-orphaned
